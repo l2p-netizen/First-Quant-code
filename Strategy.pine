@@ -1,0 +1,49 @@
+//@version=6
+strategy("Quant Session Breakout - EURUSD", overlay=true, initial_capital=10000, default_qty_type=strategy.fixed, default_qty_value=1)
+
+// === SETTINGS ===
+sl_pips = input.int(10, "Stop Loss (pips)")
+tp_pips = input.int(15, "Take Profit (pips)")
+
+pip = syminfo.mintick * 10
+
+// === SESSIONS ===
+asian_session  = "0000-0600"
+london_session = "0700-1100"
+
+in_asia   = not na(time(timeframe.period, asian_session))
+in_london = not na(time(timeframe.period, london_session))
+
+// === ASIAN RANGE ===
+var float asia_high = na
+var float asia_low  = na
+
+// Build Asia range
+if in_asia
+    asia_high := na(asia_high) ? high : math.max(asia_high, high)
+    asia_low  := na(asia_low)  ? low  : math.min(asia_low, low)
+
+// Reset at start of Asia
+if in_asia and not in_asia[1]
+    asia_high := high
+    asia_low  := low
+
+// === ENTRY CONDITIONS ===
+long_condition  = in_london and strategy.position_size == 0 and not na(asia_high) and high > asia_high
+short_condition = in_london and strategy.position_size == 0 and not na(asia_low)  and low < asia_low
+
+if long_condition
+    strategy.entry("Long", strategy.long)
+    strategy.exit("Long Exit", "Long",
+        stop  = close - sl_pips * pip,
+        limit = close + tp_pips * pip)
+
+if short_condition
+    strategy.entry("Short", strategy.short)
+    strategy.exit("Short Exit", "Short",
+        stop  = close + sl_pips * pip,
+        limit = close - tp_pips * pip)
+
+// === VISUALS ===
+plot(asia_high, title="Asia High", color=color.new(color.green, 0))
+plot(asia_low,  title="Asia Low",  color=color.new(color.red, 0))
